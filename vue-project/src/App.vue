@@ -9,5 +9,3 @@ import HtmlConverter from './components/HtmlConverter.vue'
     <HtmlConverter />
   </main>
 </template>
-
-

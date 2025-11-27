@@ -1,4 +1,5 @@
 <template>
+  <CatWrapper>
   <div class="app">
     <h1>HTML Localizer</h1>
 
@@ -75,13 +76,16 @@
         </ul>
       </div>
     </section>
+
   </div>
+  </CatWrapper>
 </template>
 
 
 
 
 <script setup>
+import CatWrapper from '@/components/CatWrapper.vue'
 import { ref, computed } from "vue";
 import JSZip from "jszip";
 import {
@@ -298,18 +302,20 @@ async function processArchive() {
 
 <style scoped>
 .app {
-  /* max-width: 720px; */
   width: 800px;
-  margin: 48px auto;
-  padding: 32px 32px 28px;
+  margin: 0 auto;
+  padding: 28px 32px 28px;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
-  background: linear-gradient(135deg, #f7f9fc 0%, #ffffff 40%, #edf3ff 100%);
-  border-radius: 24px;
+  background:
+    radial-gradient(circle at 10% 0%, #fde7d6 0%, transparent 50%),
+    radial-gradient(circle at 90% 0%, #e7ddff 0%, transparent 55%),
+    #fdfaf7;
+  border-radius: 28px;
   box-shadow:
-    0 24px 60px rgba(15, 23, 42, 0.16),
-    0 0 0 1px rgba(148, 163, 184, 0.16);
-  color: #0f172a;
+    0 26px 60px rgba(15, 23, 42, 0.16),
+    0 0 0 1px rgba(241, 245, 249, 0.9);
+  color: #111827;
 }
 
 .app > h1 {
@@ -317,35 +323,35 @@ async function processArchive() {
   font-size: 24px;
   font-weight: 700;
   letter-spacing: 0.02em;
-  color: #0f172a;
+  color: #111827;
 }
 
 /* Карточки-шаги */
 .block {
   margin-bottom: 20px;
   padding: 16px 18px 18px;
-  border-radius: 18px;
-  background: radial-gradient(
-      circle at 0 0,
-      rgba(191, 219, 254, 0.16),
-      transparent 55%
-    ),
-    #ffffff;
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 0 0, rgba(253, 230, 205, 0.5), transparent 55%),
+    #fffdf9;
   box-shadow:
-    0 14px 35px rgba(15, 23, 42, 0.08),
-    0 0 0 1px rgba(226, 232, 240, 0.9);
+    0 14px 32px rgba(15, 23, 42, 0.08),
+    0 0 0 1px rgba(243, 244, 246, 0.95);
   transition:
     box-shadow 0.2s ease,
     transform 0.2s ease,
     background 0.2s ease;
 }
 
-/* .block:hover {
+.block:hover {
   transform: translateY(-1px);
   box-shadow:
-    0 18px 45px rgba(15, 23, 42, 0.14),
-    0 0 0 1px rgba(148, 163, 184, 0.4);
-} */
+    0 18px 40px rgba(15, 23, 42, 0.12),
+    0 0 0 1px rgba(229, 231, 235, 1);
+  background:
+    radial-gradient(circle at 0 0, rgba(253, 230, 205, 0.7), transparent 55%),
+    #fffaf4;
+}
 
 .block h2 {
   margin: 0 0 12px;
@@ -360,13 +366,13 @@ async function processArchive() {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 12px;
+  padding: 9px 14px;
   border-radius: 999px;
-  background: linear-gradient(145deg, #ffffff, #f3f4f6);
+  background: linear-gradient(145deg, #fffdf9, #f5f0ea);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.9),
-    0 8px 22px rgba(148, 163, 184, 0.35),
-    0 0 0 1px rgba(209, 213, 219, 0.95);
+    0 8px 20px rgba(148, 163, 184, 0.35),
+    0 0 0 1px rgba(229, 231, 235, 0.98);
   cursor: pointer;
   overflow: hidden;
   transition:
@@ -376,10 +382,10 @@ async function processArchive() {
 }
 
 .file-field:hover {
-  background: linear-gradient(145deg, #f9fafb, #edf2ff);
+  background: linear-gradient(145deg, #fffaf4, #f3ece4);
   box-shadow:
     0 10px 26px rgba(148, 163, 184, 0.5),
-    0 0 0 1px rgba(165, 180, 252, 0.9);
+    0 0 0 1px rgba(248, 231, 209, 0.95);
   transform: translateY(-1px);
 }
 
@@ -393,16 +399,16 @@ async function processArchive() {
 /* «Кнопка» внутри поля */
 .file-field__button {
   flex-shrink: 0;
-  padding: 6px 14px;
+  padding: 6px 16px;
   border-radius: 999px;
-  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  background: linear-gradient(135deg, #6366f1, #a855f7);
   color: #ffffff;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.03em;
   box-shadow:
-    0 8px 18px rgba(37, 99, 235, 0.5),
-    0 0 0 1px rgba(219, 234, 254, 0.9);
+    0 8px 18px rgba(129, 140, 248, 0.55),
+    0 0 0 1px rgba(238, 242, 255, 0.95);
   pointer-events: none;
 }
 
@@ -428,18 +434,18 @@ async function processArchive() {
   align-items: center;
   justify-content: center;
   min-width: 260px;
-  padding: 11px 20px;
+  padding: 11px 22px;
   border-radius: 999px;
   border: none;
-  background: linear-gradient(135deg, #2563eb 0%, #4f46e5 45%, #7c3aed 100%);
+  background: linear-gradient(135deg, #6366f1 0%, #a855f7 45%, #ec4899 100%);
   color: #ffffff;
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.02em;
   cursor: pointer;
   box-shadow:
-    0 0px 17px rgba(37, 99, 235, 0.4),
-    0 0 0 1px rgba(191, 219, 254, 0.6);
+    0 0px 18px rgba(129, 140, 248, 0.5),
+    0 0 0 1px rgba(226, 232, 240, 0.9);
   transition:
     transform 0.12s ease,
     box-shadow 0.12s ease,
@@ -450,25 +456,25 @@ async function processArchive() {
 .block button:hover:not([disabled]) {
   transform: translateY(-1px);
   box-shadow:
-    0 18px 40px rgba(37, 99, 235, 0.5),
-    0 0 0 1px rgba(191, 219, 254, 0.95);
+    0 18px 40px rgba(129, 140, 248, 0.55),
+    0 0 0 1px rgba(226, 232, 240, 1);
   filter: brightness(1.03);
 }
 
 .block button:active:not([disabled]) {
   transform: translateY(0);
   box-shadow:
-    0 8px 18px rgba(37, 99, 235, 0.35),
-    0 0 0 1px rgba(191, 219, 254, 0.9);
+    0 8px 18px rgba(129, 140, 248, 0.35),
+    0 0 0 1px rgba(226, 232, 240, 0.95);
 }
 
 .block button[disabled] {
-  opacity: 0.55;
+  opacity: 0.6;
   cursor: not-allowed;
   box-shadow:
     0 4px 12px rgba(148, 163, 184, 0.3),
-    0 0 0 1px rgba(209, 213, 219, 0.9);
-  background: linear-gradient(135deg, #cbd5f5 0%, #e5e7eb 100%);
+    0 0 0 1px rgba(229, 231, 235, 0.95);
+  background: linear-gradient(135deg, #e5e7f5 0%, #e5e7eb 100%);
 }
 
 /* Ошибка */
@@ -481,23 +487,23 @@ async function processArchive() {
   background: linear-gradient(135deg, #fef2f2, #fee2e2);
   border: 1px solid #fecaca;
   box-shadow:
-    0 6px 16px rgba(248, 113, 113, 0.25),
-    inset 0 0 0 1px rgba(254, 226, 226, 0.9);
+    0 6px 16px rgba(248, 113, 113, 0.22),
+    inset 0 0 0 1px rgba(254, 226, 226, 0.95);
 }
 
 /* Логи */
 .log-panel {
   margin-top: 18px;
   padding: 14px 16px 10px;
-  border-radius: 18px;
+  border-radius: 20px;
   background:
-    radial-gradient(circle at 0 0, rgba(219, 234, 254, 0.6), transparent 55%),
-    #f9fafb;
-  border: 1px solid rgba(209, 213, 219, 0.9);
+    radial-gradient(circle at 0 0, rgba(252, 231, 206, 0.5), transparent 55%),
+    #fdf7f2;
+  border: 1px solid rgba(229, 231, 235, 0.95);
   box-shadow:
-    0 14px 32px rgba(15, 23, 42, 0.12),
-    0 0 0 1px rgba(226, 232, 240, 0.9);
-  color: #0f172a;
+    0 14px 30px rgba(15, 23, 42, 0.12),
+    0 0 0 1px rgba(243, 244, 246, 0.95);
+  color: #111827;
   font-size: 13px;
   max-height: 260px;
   overflow-y: auto;
@@ -517,7 +523,7 @@ async function processArchive() {
 .log-panel__header::after {
   content: "⟳";
   font-size: 11px;
-  opacity: 0.4;
+  opacity: 0.35;
 }
 
 .log-panel__list {
@@ -528,15 +534,15 @@ async function processArchive() {
 
 .log-panel__item {
   display: flex;
-      text-align: center;
-    align-items: center;
+  text-align: center;
+  align-items: center;
   gap: 8px;
   padding: 7px 9px;
-  border-radius: 12px;
+  border-radius: 14px;
   margin-bottom: 4px;
-  background: linear-gradient(135deg, #ffffff, #f3f4f6);
+  background: linear-gradient(135deg, #ffffff, #f5f0ea);
   box-shadow:
-    0 6px 14px rgba(148, 163, 184, 0.35),
+    0 6px 14px rgba(148, 163, 184, 0.32),
     inset 0 0 0 1px rgba(229, 231, 235, 0.9);
   transition:
     box-shadow 0.15s ease,
@@ -550,9 +556,9 @@ async function processArchive() {
 
 .log-panel__item:hover {
   transform: translateY(-1px);
-  background: linear-gradient(135deg, #f9fafb, #edf2ff);
+  background: linear-gradient(135deg, #fffaf4, #f3ece4);
   box-shadow:
-    0 10px 24px rgba(148, 163, 184, 0.46),
+    0 10px 24px rgba(148, 163, 184, 0.44),
     inset 0 0 0 1px rgba(209, 213, 219, 1);
 }
 
@@ -567,22 +573,22 @@ async function processArchive() {
 }
 
 .log-panel__item--info .log-panel__badge {
-  background: rgba(59, 130, 246, 0.12);
+  background: rgba(59, 130, 246, 0.08);
   color: #1d4ed8;
   box-shadow: 0 0 0 1px rgba(191, 219, 254, 0.9);
 }
 .log-panel__item--warn .log-panel__badge {
-  background: rgba(245, 158, 11, 0.12);
+  background: rgba(245, 158, 11, 0.09);
   color: #b45309;
   box-shadow: 0 0 0 1px rgba(252, 211, 77, 0.9);
 }
 .log-panel__item--error .log-panel__badge {
-  background: rgba(239, 68, 68, 0.13);
+  background: rgba(239, 68, 68, 0.11);
   color: #b91c1c;
   box-shadow: 0 0 0 1px rgba(254, 202, 202, 0.95);
 }
 .log-panel__item--success .log-panel__badge {
-  background: rgba(16, 185, 129, 0.12);
+  background: rgba(16, 185, 129, 0.11);
   color: #047857;
   box-shadow: 0 0 0 1px rgba(167, 243, 208, 0.95);
 }
@@ -592,4 +598,5 @@ async function processArchive() {
   color: #111827;
 }
 </style>
+
 
