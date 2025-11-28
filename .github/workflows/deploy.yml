@@ -23,7 +23,8 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 root@45.67.35.16 "
             cd /var/www/nomorewhite &&
-            git pull &&
+            git pull && 
+            docker rm -f nomorewhite-frontend && 
             docker-compose build --no-cache &&
             docker-compose up -d --force-recreate
           "
