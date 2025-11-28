@@ -22,9 +22,14 @@ jobs:
       - name: Deploy to server
         run: |
           ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 root@45.67.35.16 "
-            cd /var/www/nomorewhite &&
-            git pull && 
-            docker rm -f nomorewhite-frontend || true &&
-            docker compose -f vue-project/docker-compose.yml build --no-cache &&
-            docker compose -f vue-project/docker-compose.yml up -d --force-recreate
+            cd /var/www/nomorewhite/vue-project &&
+            git pull &&
+
+            docker build -t nomorewhite-frontend-builder . &&
+
+            rm -rf /var/www/nomorewhite/dist
+            mkdir -p /var/www/nomorewhite/dist
+            docker run --rm -v /var/www/nomorewhite/dist:/output nomorewhite-frontend-builder cp -r /app/dist/* /output/ &&
+
+            systemctl reload nginx
           "
