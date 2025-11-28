@@ -25,6 +25,6 @@ jobs:
             cd /var/www/nomorewhite &&
             git pull && 
             docker rm -f nomorewhite-frontend || true &&
-            docker compose build --no-cache &&
-            docker compose up -d --force-recreate
+            docker compose -f vue-project/docker-compose.yml build --no-cache &&
+            docker compose -f vue-project/docker-compose.yml up -d --force-recreate
           "
