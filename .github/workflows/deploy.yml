@@ -21,7 +21,7 @@ jobs:
 
       - name: Deploy to server
         run: |
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 root@I45.67.35.16 "
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 root@45.67.35.16 "
             cd /var/www/nomorewhite &&
             git pull &&
             docker compose up -d --build
