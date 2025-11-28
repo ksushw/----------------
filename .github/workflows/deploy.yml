@@ -27,5 +27,10 @@ jobs:
             git pull &&
 
             docker build -t nomorewhite-frontend-builder . &&
-            docker run --rm -v /var/www/nomorewhite/dist:/app/dist nomorewhite-frontend-builder
+
+            mkdir -p /var/www/nomorewhite/dist &&
+
+            docker run --rm -v /var/www/nomorewhite:/output nomorewhite-frontend-builder cp -r /app/dist /output/ &&
+
+            systemctl restart nginx
           "
