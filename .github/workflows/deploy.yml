@@ -19,17 +19,13 @@ jobs:
           echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
 
-      - name: Deploy to server
+      - name: Build and Deploy
         run: |
           ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 root@45.67.35.16 "
             cd /var/www/nomorewhite/vue-project &&
+
             git pull &&
 
             docker build -t nomorewhite-frontend-builder . &&
-
-            rm -rf /var/www/nomorewhite/dist
-            mkdir -p /var/www/nomorewhite/dist
-            docker run --rm -v /var/www/nomorewhite/dist:/output nomorewhite-frontend-builder cp -r /app/dist/* /output/ &&
-
-            systemctl reload nginx
+            docker run --rm -v /var/www/nomorewhite/dist:/app/dist nomorewhite-frontend-builder
           "
