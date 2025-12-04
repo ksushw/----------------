@@ -102,6 +102,9 @@ const zipName = ref("");
 const jsonFiles = ref([]);
 const jsonName = ref("");
 
+// базовый json с общими переводами (кнопки, ссылки и т.п.)
+const baseTranslations = ref(null);
+
 const loading = ref(false);
 const error = ref("");
 const log = ref("");
@@ -152,6 +155,65 @@ function onJsonChange(e) {
   jsonName.value = files.map((f) => f.name).join(", ");
 }
 
+// =======================
+//   MERGE ХЕЛПЕРЫ
+// =======================
+
+function isPlainObject(obj) {
+  return obj && typeof obj === "object" && !Array.isArray(obj);
+}
+
+// аккуратный deep-merge без мутации исходников
+function deepMerge(target, source) {
+  const output = { ...target };
+
+  if (!isPlainObject(source)) return output;
+
+  Object.keys(source).forEach((key) => {
+    const sourceVal = source[key];
+    const targetVal = output[key];
+
+    if (isPlainObject(sourceVal) && isPlainObject(targetVal)) {
+      output[key] = deepMerge(targetVal, sourceVal);
+    } else {
+      output[key] = sourceVal;
+    }
+  });
+
+  return output;
+}
+
+// итоговые переводы для HTML: base.json + page.json (page имеет приоритет)
+function buildTranslations(base, page) {
+  if (!base || !page) return null; // по твоим требованиям оба обязательны
+  return deepMerge(base, page);
+}
+
+// замена альтушек(alt)
+
+function applyAltForImages(doc, htmlPath) {
+  const images = doc.querySelectorAll("img");
+  let updatedCount = 0;
+
+  images.forEach((img) => {
+    img.setAttribute("alt", "img");
+    updatedCount++;
+  });
+
+  if (updatedCount === 0) {
+    appendLog(
+      `[ALT] В файле "${htmlPath}" не найдено тегов <img>. Ничего не изменено.`
+    );
+  } else {
+    appendLog(
+      `[ALT] В файле "${htmlPath}" атрибут alt="img" проставлен/обновлён для ${updatedCount} изображений.`
+    );
+  }
+}
+
+
+
+
 // обработка одного HTML-файла
 function processHtmlContent(htmlString, translations, htmlPath) {
   const parser = new DOMParser();
@@ -165,7 +227,14 @@ function processHtmlContent(htmlString, translations, htmlPath) {
     const value = getTranslationValue(translations, key);
 
     if (value != null) {
-      el.innerHTML = value;
+      if (el.tagName.toLowerCase() === "input") {
+        // для инпутов — плейсхолдер
+        el.setAttribute("placeholder", value);
+      } else {
+        // для всего остального — как раньше
+        el.innerHTML = value;
+      }
+
       el.removeAttribute("text");
     } else {
       // лог по каждому отсутствующему ключу
@@ -183,17 +252,18 @@ function processHtmlContent(htmlString, translations, htmlPath) {
       ).join(", ")}`
     );
   }
-
+  applyAltForImages(doc, htmlPath);
   return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
 }
-
 
 async function processArchive() {
   error.value = "";
   log.value = "";
+  baseTranslations.value = null;
 
   if (!zipFile.value || !jsonFiles.value.length) {
-    error.value = "Нужно выбрать ZIP с HTML и хотя бы один JSON с переводами.";
+    error.value =
+      "Нужно выбрать ZIP с HTML и хотя бы один JSON с переводами.";
     return;
   }
 
@@ -204,10 +274,19 @@ async function processArchive() {
     // читаем все JSON-файлы
     for (const file of jsonFiles.value) {
       const base = getBaseName(file.name);
+
       try {
         const data = await readJsonFile(file);
-        jsonMap.set(base, data);
-        appendLog(`[JSON] Файл "${file.name}" успешно прочитан.`);
+
+        if (base.toLowerCase() === "base") {
+          baseTranslations.value = data;
+          appendLog(
+            `[JSON] Базовый файл "${file.name}" успешно прочитан и будет применён ко всем страницам.`
+          );
+        } else {
+          jsonMap.set(base, data);
+          appendLog(`[JSON] Файл "${file.name}" успешно прочитан.`);
+        }
       } catch (e) {
         console.error(e);
         appendLog(
@@ -216,6 +295,16 @@ async function processArchive() {
           }`
         );
       }
+    }
+
+    // base.json обязателен
+    if (!baseTranslations.value) {
+      const msg =
+        'Не найден обязательный файл переводов "base.json" среди выбранных JSON.';
+      error.value = msg;
+      appendLog(`[JSON] ${msg}`);
+      loading.value = false;
+      return;
     }
 
     const zip = await readZipFile(zipFile.value);
@@ -231,14 +320,24 @@ async function processArchive() {
         const htmlBase = getBaseName(relativePath);
         htmlBaseNamesInZip.add(htmlBase);
 
-        const translationsForThisHtml = jsonMap.get(htmlBase);
+        const pageTranslations = jsonMap.get(htmlBase);
+        const mergedTranslations = buildTranslations(
+          baseTranslations.value,
+          pageTranslations
+        );
 
-        if (!translationsForThisHtml) {
-          // нет JSON для этого HTML
+        if (!mergedTranslations) {
+          // нет json для этой страницы или проблемы с base (base уже проверен выше)
           htmlWithoutJson++;
-          appendLog(
-            `[HTML] Для файла "${relativePath}" не найден файл переводов "${htmlBase}.json". HTML сохранён без изменений.`
-          );
+          if (!pageTranslations) {
+            appendLog(
+              `[HTML] Для файла "${relativePath}" не найден обязательный файл переводов "${htmlBase}.json". HTML сохранён без изменений.`
+            );
+          } else {
+            appendLog(
+              `[HTML] Для файла "${relativePath}" не удалось собрать обязательные переводы (base + ${htmlBase}.json). HTML сохранён без изменений.`
+            );
+          }
 
           const p = file.async("string").then((content) => {
             newZip.file(relativePath, content);
@@ -248,7 +347,7 @@ async function processArchive() {
           const p = file.async("string").then((content) => {
             const processed = processHtmlContent(
               content,
-              translationsForThisHtml,
+              mergedTranslations,
               relativePath
             );
             newZip.file(relativePath, processed);
@@ -267,7 +366,7 @@ async function processArchive() {
       }
     });
 
-    // JSON без соответствующего HTML
+    // JSON без соответствующего HTML (кроме base.json)
     jsonMap.forEach((_, baseName) => {
       if (!htmlBaseNamesInZip.has(baseName)) {
         jsonWithoutHtml++;
@@ -281,11 +380,14 @@ async function processArchive() {
 
     const blob = await newZip.generateAsync({ type: "blob" });
     const baseName = zipName.value.replace(/\.zip$/i, "");
+
     saveAs(blob, `${baseName}-localized.zip`);
+
+    const totalJsonFiles = jsonMap.size + 1; // +1 за base.json
 
     appendLog("Готово. Обработка завершена, новый ZIP-файл скачан.");
     appendLog(
-      `Итог: HTML-файлов в архиве: ${htmlBaseNamesInZip.size}, JSON-файлов: ${jsonMap.size}. Без пары — HTML: ${htmlWithoutJson}, JSON: ${jsonWithoutHtml}.`
+      `Итог: HTML-файлов в архиве: ${htmlBaseNamesInZip.size}, JSON-файлов (включая base.json): ${totalJsonFiles}. Без пары — HTML: ${htmlWithoutJson}, JSON: ${jsonWithoutHtml}.`
     );
   } catch (e) {
     console.error(e);
@@ -298,6 +400,7 @@ async function processArchive() {
   }
 }
 </script>
+
 
 
 <style scoped>

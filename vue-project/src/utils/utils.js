@@ -45,4 +45,41 @@ function getBaseName(path) {
   const fileName = path.split(/[\\/]/).pop() || "";
   return fileName.replace(/\.[^.]+$/, "");
 }
-export { readJsonFile, readZipFile, getTranslationValue, getBaseName };
+
+
+function isPlainObject(obj) {
+  return obj && typeof obj === "object" && !Array.isArray(obj);
+}
+
+// аккуратный deep-merge без мутации исходников
+function deepMerge(target, source) {
+  const output = { ...target };
+
+  if (!isPlainObject(source)) return output;
+
+  Object.keys(source).forEach((key) => {
+    const sourceVal = source[key];
+    const targetVal = output[key];
+
+    if (isPlainObject(sourceVal) && isPlainObject(targetVal)) {
+      output[key] = deepMerge(targetVal, sourceVal);
+    } else {
+      output[key] = sourceVal;
+    }
+  });
+
+  return output;
+}
+
+// собираем итоговый объект переводов для HTML:
+// base.json + page.json (page имеет приоритет)
+function buildTranslations(base, page) {
+  if (!base && !page) return null;
+  if (!base) return page;
+  if (!page) return base;
+  return deepMerge(base, page);
+}
+
+
+
+export { readJsonFile, readZipFile, getTranslationValue, getBaseName, buildTranslations };
