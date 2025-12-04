@@ -1,0 +1,11 @@
+version: "3.9"
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nomorewhite-frontend
+    ports:
+      - "127.0.0.1:8080:80" 
+    restart: unless-stopped
