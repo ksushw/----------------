@@ -81,5 +81,38 @@ function buildTranslations(base, page) {
 }
 
 
+// хелпер пути для проверки наличия текста
+function getElementPath(el) {
+  const parts = [];
 
-export { readJsonFile, readZipFile, getTranslationValue, getBaseName, buildTranslations };
+  while (el && el.nodeType === 1 && el.tagName.toLowerCase() !== "html") {
+    let part = el.tagName.toLowerCase();
+
+    if (el.id) {
+      part += `#${el.id}`;
+      parts.unshift(part);
+      break;
+    }
+
+    if (el.classList && el.classList.length) {
+      part += "." + Array.from(el.classList).slice(0, 2).join(".");
+    }
+
+    parts.unshift(part);
+    el = el.parentElement;
+  }
+
+  return parts.join(" > ") || "unknown";
+}
+
+
+
+
+export {
+  readJsonFile,
+  readZipFile,
+  getTranslationValue,
+  getBaseName,
+  buildTranslations,
+  getElementPath
+};
