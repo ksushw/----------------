@@ -4,46 +4,32 @@
       <div class="app">
         <h1>HTML Localizer</h1>
 
-        <!-- ZIP -->
+        <!-- ZIP (HTML + assets/locales/*.json) -->
         <section class="block">
-          <h2>1. Загрузите ZIP с HTML</h2>
+          <h2>1. Загрузите ZIP с версткой и переводами</h2>
 
           <label class="file-field">
-            <input type="file" accept=".zip" @change="onZipChange" class="file-field__input" />
+            <input
+              type="file"
+              accept=".zip"
+              @change="onZipChange"
+              class="file-field__input"
+            />
             <span class="file-field__button">Выбрать ZIP</span>
             <span class="file-field__filename">
               {{ zipName || "Файл не выбран" }}
             </span>
           </label>
 
-          <p v-if="zipName" class="file-field__hint">Файл: {{ zipName }}</p>
-        </section>
-
-        <!-- JSON -->
-        <section class="block">
-          <h2>2. Загрузите JSON с переводами</h2>
-
-          <label class="file-field">
-            <input
-              type="file"
-              accept=".json"
-              multiple
-              @change="onJsonChange"
-              class="file-field__input"
-            />
-            <span class="file-field__button">Выбрать файлы</span>
-            <span class="file-field__filename">
-              {{ jsonName || "Файлы не выбраны" }}
-            </span>
-          </label>
-
-          <p v-if="jsonName" class="file-field__hint">Файлы: {{ jsonName }}</p>
+          <p v-if="zipName" class="file-field__hint">
+            Файл: {{ zipName }} (ожидается /assets/locales/base.json и page.json)
+          </p>
         </section>
 
         <!-- Кнопка + лог -->
         <section class="block">
           <button :disabled="!canProcess || loading" @click="processArchive">
-            {{ loading ? "Обработка..." : "3. Обработать и скачать ZIP" }}
+            {{ loading ? "Обработка..." : "2. Обработать и скачать ZIP" }}
           </button>
 
           <p v-if="error" class="error-msg">{{ error }}</p>
@@ -82,7 +68,6 @@ import CatWrapper from "@/components/CatWrapper.vue";
 import { ref, computed } from "vue";
 import JSZip from "jszip";
 import {
-  readJsonFile,
   readZipFile,
   getTranslationValue,
   getBaseName,
@@ -90,14 +75,8 @@ import {
 } from "@/utils/utils";
 import { saveAs } from "file-saver";
 
-
-
-
 const zipFile = ref(null);
 const zipName = ref("");
-
-const jsonFiles = ref([]);
-const jsonName = ref("");
 
 // базовый json с общими переводами (кнопки, ссылки и т.п.)
 const baseTranslations = ref(null);
@@ -105,10 +84,9 @@ const baseTranslations = ref(null);
 const loading = ref(false);
 const error = ref("");
 const log = ref("");
-const langLog = ref("");
 
-
-const canProcess = computed(() => !!zipFile.value && jsonFiles.value.length > 0);
+// теперь обрабатываем только ZIP, без отдельного выбора JSON
+const canProcess = computed(() => !!zipFile.value);
 
 // превращаем общий лог в массив записей с типами
 const logEntries = computed(() => {
@@ -142,13 +120,9 @@ function onZipChange(e) {
   zipName.value = file.name;
 }
 
-function onJsonChange(e) {
-  const files = Array.from(e.target.files || []);
-  if (!files.length) return;
-
-  jsonFiles.value = files;
-  jsonName.value = files.map((f) => f.name).join(", ");
-}
+// =======================
+//   MERGE ХЕЛПЕРЫ
+// =======================
 
 function isPlainObject(obj) {
   return obj && typeof obj === "object" && !Array.isArray(obj);
@@ -176,14 +150,11 @@ function deepMerge(target, source) {
 
 // итоговые переводы для HTML: base.json + page.json (page имеет приоритет)
 function buildTranslations(base, page) {
-  if (!base || !page) return null; // по твоим требованиям оба обязательны
+  if (!base || !page) return null; // оба обязательны
   return deepMerge(base, page);
 }
 
-
-
-// замена альтушек(alt)
-
+// alt для всех img
 function applyAltForImages(doc) {
   const images = doc.querySelectorAll("img");
   images.forEach((img) => {
@@ -191,7 +162,7 @@ function applyAltForImages(doc) {
   });
 }
 
-// проверка наличия текста в верстке
+// проверка наличия текста в верстке (до замены переводами)
 function checkForRawText(doc, htmlPath) {
   const root = doc.body || doc;
   if (!root) return;
@@ -231,7 +202,7 @@ function checkForRawText(doc, htmlPath) {
   rawFragments.slice(0, limit).forEach((frag) => {
     appendLog(
       `есть текст "${frag.text}" в файле "${htmlPath}", необходимо перенести в json`
-      // если нужно, можно добавить селектор:
+      // можно добавить селектор, если нужно:
       // + ` (элемент: ${frag.selector})`
     );
   });
@@ -243,33 +214,48 @@ function checkForRawText(doc, htmlPath) {
   }
 }
 
+function removeLocaleScriptTags(doc) {
+  const scripts = doc.querySelectorAll("script[src]");
+
+  scripts.forEach((script) => {
+    const src = script.getAttribute("src") || "";
+
+    // матчит:
+    // /assets/js/local.js
+    // ./local.js
+    // /js/locale.js?v=123 и т.п.
+    if (/(^|\/)(locale)\.js(\?.*)?$/i.test(src)) {
+      script.remove();
+    }
+  });
+}
 
 // обработка одного HTML-файла
 function processHtmlContent(htmlString, translations, htmlPath) {
-langLog.value = "";
   const parser = new DOMParser();
   const doc = parser.parseFromString(htmlString, "text/html");
+  removeLocaleScriptTags(doc, htmlPath);
+  // сначала ищем "голый" текст в верстке
   checkForRawText(doc, htmlPath);
+
   const elements = doc.querySelectorAll("[text]");
   const missingKeysSet = new Set();
 
   elements.forEach((el) => {
     applyAltForImages(doc);
+
     const key = el.getAttribute("text");
     const value = getTranslationValue(translations, key);
 
     if (value != null) {
       if (el.tagName.toLowerCase() === "input") {
-        // для инпутов — плейсхолдер
         el.setAttribute("placeholder", value);
       } else {
-        // для всего остального — как раньше
         el.innerHTML = value;
       }
 
       el.removeAttribute("text");
     } else {
-      // лог по каждому отсутствующему ключу
       appendLog(
         `[Переводы] Нет перевода для ключа "${key}" в файле "${htmlPath}". Элемент оставлен без изменений.`
       );
@@ -277,24 +263,22 @@ langLog.value = "";
     }
   });
 
-  if (missingKeysSet.size > 0) {
-    appendLog(
-      `[Переводы] В файле "${htmlPath}" не найдены переводы для ключей: ${Array.from(
-        missingKeysSet
-      ).join(", ")}`
-    );
-  }
-// checkLocalizedLanguage(doc, htmlPath);
+
+
   return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
 }
+
+// замена __t("key") в JS по baseTranslations
 function processJsContent(content, baseTranslations, fileName) {
   if (!baseTranslations) {
-    appendLog(`[JS] Для файла "${fileName}" не найден base.json. JS сохранён без изменений.`);
+    appendLog(
+      `[JS] Для файла "${fileName}" не найден base.json. JS сохранён без изменений.`
+    );
     return content;
   }
 
   return content.replace(/__t\("([^"]+)"\)/g, (match, keyPath) => {
-    const value = getTranslationValue(baseTranslations, keyPath); // у тебя уже есть эта функция
+    const value = getTranslationValue(baseTranslations, keyPath);
 
     if (value == null) {
       appendLog(
@@ -312,52 +296,66 @@ function processJsContent(content, baseTranslations, fileName) {
   });
 }
 
-
 async function processArchive() {
   error.value = "";
   log.value = "";
   baseTranslations.value = null;
 
-  if (!zipFile.value || !jsonFiles.value.length) {
-    error.value = "Нужно выбрать ZIP с HTML и хотя бы один JSON с переводами.";
+  if (!zipFile.value) {
+    error.value = "Нужно выбрать ZIP с HTML и переводами.";
     return;
   }
 
   loading.value = true;
   try {
+    const zip = await readZipFile(zipFile.value);
+
+    // 1. Тянем JSON из assets/locales
     const jsonMap = new Map();
+    const jsonReadPromises = [];
 
-    // читаем все JSON-файлы
-    for (const file of jsonFiles.value) {
-      const base = getBaseName(file.name);
+    zip.forEach((relativePath, file) => {
+      if (file.dir) return;
 
-      try {
-        const data = await readJsonFile(file);
+      const lower = relativePath.toLowerCase();
+      if (!lower.endsWith(".json")) return;
+      if (!lower.startsWith("assets/locales/")) return;
 
-        if (base.toLowerCase() === "base") {
-          baseTranslations.value = data;
-        } else {
-          jsonMap.set(base, data);
+      const baseName = getBaseName(relativePath);
+
+      const p = file.async("string").then((content) => {
+        try {
+          const data = JSON.parse(content);
+
+          if (baseName.toLowerCase() === "base") {
+            baseTranslations.value = data;
+          } else {
+            jsonMap.set(baseName, data);
+          }
+        } catch (e) {
+          appendLog(
+            `[JSON] Не удалось распарсить "${relativePath}" как JSON. Причина: ${
+              e.message || e
+            }`
+          );
         }
-      } catch (e) {
-        console.error(e);
-        appendLog(
-          `[JSON] Не удалось прочитать файл "${file.name}". Причина: ${e.message || e}`
-        );
-      }
-    }
+      });
 
-    // base.json обязателен
+      jsonReadPromises.push(p);
+    });
+
+    await Promise.all(jsonReadPromises);
+
     if (!baseTranslations.value) {
       const msg =
-        'Не найден обязательный файл переводов "base.json" среди выбранных JSON.';
+        'Не найден обязательный файл переводов "assets/locales/base.json" внутри ZIP.';
       error.value = msg;
       appendLog(`[JSON] ${msg}`);
       loading.value = false;
       return;
     }
 
-    const zip = await readZipFile(zipFile.value);
+    // 2. Собираем новый ZIP, БЕЗ assets/locales и local(e).js
     const newZip = new JSZip();
     const filePromises = [];
 
@@ -366,15 +364,31 @@ async function processArchive() {
     let jsonWithoutHtml = 0;
 
     zip.forEach((relativePath, file) => {
-      // папки
+      const lower = relativePath.toLowerCase();
+      const fileNameOnly = relativePath.split("/").pop().toLowerCase();
+
+      // --- срезаем целиком assets/locales (и папку, и файлы) ---
+      if (
+        lower === "assets/locales" ||
+        lower === "assets/locales/" ||
+        lower.startsWith("assets/locales/")
+      ) {
+
+        return;
+      }
+
+      // --- выкидываем скрипт локализации local.js / locale.js ---
+      if (fileNameOnly === "local.js" || fileNameOnly === "locale.js") {
+        return;
+      }
+
+      // папки (кроме locales, мы их уже отфильтровали выше)
       if (file.dir) {
         newZip.folder(relativePath);
         return;
       }
 
-      const lower = relativePath.toLowerCase();
-
-      // 1) HTML
+      // HTML
       if (lower.endsWith(".html")) {
         const htmlBase = getBaseName(relativePath);
         htmlBaseNamesInZip.add(htmlBase);
@@ -389,7 +403,7 @@ async function processArchive() {
           htmlWithoutJson++;
           if (!pageTranslations) {
             appendLog(
-              `[HTML] Для файла "${relativePath}" не найден обязательный файл переводов "${htmlBase}.json". HTML сохранён без изменений.`
+              `[HTML] Для файла "${relativePath}" не найден обязательный "assets/locales/${htmlBase}.json". HTML сохранён без изменений.`
             );
           } else {
             appendLog(
@@ -416,22 +430,21 @@ async function processArchive() {
         return;
       }
 
-      // 2) JS — здесь добавляем нашу "умную" замену __t("key")
-     if (lower.endsWith(".js")) {
-    const p = file.async("string").then((content) => {
-      const processed = processJsContent(
-        content,
-        baseTranslations.value,
-        relativePath
-      );
-      newZip.file(relativePath, processed);
-    });
-    filePromises.push(p);
-    return;
-  }
+      // JS — умная замена __t("key") по base.json
+      if (lower.endsWith(".js")) {
+        const p = file.async("string").then((content) => {
+          const processed = processJsContent(
+            content,
+            baseTranslations.value,
+            relativePath
+          );
+          newZip.file(relativePath, processed);
+        });
+        filePromises.push(p);
+        return;
+      }
 
-
-      // 3) Любые другие файлы — копируем как есть
+      // Остальные файлы — как есть
       const p = file.async("arraybuffer").then((content) => {
         newZip.file(relativePath, content);
       });
@@ -443,7 +456,7 @@ async function processArchive() {
       if (!htmlBaseNamesInZip.has(baseName)) {
         jsonWithoutHtml++;
         appendLog(
-          `[JSON] Для файла переводов "${baseName}.json" не найден соответствующий HTML-файл в архиве.`
+          `[JSON] Для файла переводов "assets/locales/${baseName}.json" не найден соответствующий HTML-файл в архиве.`
         );
       }
     });
@@ -452,7 +465,6 @@ async function processArchive() {
 
     const blob = await newZip.generateAsync({ type: "blob" });
     const baseName = zipName.value.replace(/\.zip$/i, "");
-
     saveAs(blob, `${baseName}-localized.zip`);
 
     const totalJsonFiles = jsonMap.size + 1; // +1 за base.json
@@ -473,6 +485,7 @@ async function processArchive() {
 }
 
 </script>
+
 
 <style scoped>
 /* Лейаут: конвертер + сайдбар */
