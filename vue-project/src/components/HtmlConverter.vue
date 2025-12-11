@@ -241,6 +241,7 @@ function processHtmlContent(htmlString, translations, htmlPath) {
   const elements = doc.querySelectorAll("[text]");
   const missingKeysSet = new Set();
 
+  
   elements.forEach((el) => {
     applyAltForImages(doc);
 
@@ -277,7 +278,9 @@ function processJsContent(content, baseTranslations, fileName) {
     return content;
   }
 
-  return content.replace(/__t\("([^"]+)"\)/g, (match, keyPath) => {
+  const regex = /__t\(\s*(['"`])([^'"`]+)\1\s*(?:,[^)]+)?\)/g;
+
+  return content.replace(regex, (match, _quote, keyPath) => {
     const value = getTranslationValue(baseTranslations, keyPath);
 
     if (value == null) {
@@ -295,6 +298,7 @@ function processJsContent(content, baseTranslations, fileName) {
     return `"${escaped}"`;
   });
 }
+
 
 async function processArchive() {
   error.value = "";
