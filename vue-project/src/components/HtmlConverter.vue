@@ -99,10 +99,12 @@ const logEntries = computed(() => {
 
       if (/ошибка|не удалось/i.test(line)) {
         type = "error";
-      } else if (/не найден|без пары|сохранён как есть|нет перевода/i.test(line)) {
-        type = "warn";
       } else if (/готово|обработка завершена|итог/i.test(line)) {
+        // сначала успех
         type = "success";
+      } else if (/не найден|без пары|сохранён как есть|нет перевода/i.test(line)) {
+        // потом уже предупреждения
+        type = "warn";
       }
 
       return { id: index, type, text: line };
@@ -241,7 +243,7 @@ function processHtmlContent(htmlString, translations, htmlPath) {
   const elements = doc.querySelectorAll("[text]");
   const missingKeysSet = new Set();
 
-  
+
   elements.forEach((el) => {
     applyAltForImages(doc);
 
