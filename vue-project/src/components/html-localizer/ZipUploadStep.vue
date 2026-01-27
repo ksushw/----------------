@@ -2,7 +2,8 @@
   <section class="block">
     <h2>1. Загрузите ZIP с версткой и переводами</h2>
 
-    <label class="file-field">
+    <label class="file-field" @dragenter.prevent="isDrag = true" @dragover.prevent="onDragOver"
+      @dragleave.prevent="isDrag = false" @drop.prevent="onDrop" :data-drag="isDrag ? '1' : '0'">
       <input type="file" accept=".zip" class="file-field__input" @change="onChange" />
       <span class="file-field__button">Выбрать ZIP</span>
       <span class="file-field__filename">
@@ -17,16 +18,43 @@
 </template>
 
 <script setup>
+import { ref, toRefs } from "vue";
+
+const props = defineProps({
+  zipName: { type: String, default: "" },
+});
+
+const { zipName } = toRefs(props);
 
 const emit = defineEmits(["select"]);
 
+const isDrag = ref(false);
+
 function onChange(e) {
-  const file = e.target.files?.[0];
+  const input = e.target;
+  const file = input.files?.[0];
   if (!file) return;
+  emit("select", file);
+
+  input.value = "";
+}
+
+function onDragOver(e) {
+  if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+}
+
+function onDrop(e) {
+  isDrag.value = false;
+  const file = e.dataTransfer?.files?.[0];
+  if (!file) return;
+  if (!/\.zip$/i.test(file.name)) return;
+
   emit("select", file);
 }
 </script>
+
 <style scoped>
+
 .block {
   margin-bottom: 18px;
   padding: 16px 18px;
@@ -34,7 +62,6 @@ function onChange(e) {
   background: var(--hl-surface-2);
   border: 1px solid var(--hl-border);
   box-shadow: var(--hl-shadow-sm);
-
   /* убираем «прыжки» — это детсад */
   transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -58,17 +85,13 @@ function onChange(e) {
   display: flex;
   align-items: center;
   gap: 10px;
-
   padding: 10px 12px;
   border-radius: var(--hl-radius-sm);
-
   background: #ffffff;
   border: 1px solid rgba(15, 23, 42, 0.14);
   box-shadow: 0 6px 16px rgba(2, 6, 23, 0.06);
-
   cursor: pointer;
   overflow: hidden;
-
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -80,9 +103,7 @@ function onChange(e) {
 /* важное: нормальный фокус */
 .file-field:focus-within {
   border-color: rgba(37, 99, 235, 0.55);
-  box-shadow:
-    0 10px 22px rgba(2, 6, 23, 0.08),
-    0 0 0 4px var(--hl-focus);
+  box-shadow: 0 10px 22px rgba(2, 6, 23, 0.08), 0 0 0 4px var(--hl-focus);
 }
 
 .file-field__input {
@@ -96,14 +117,11 @@ function onChange(e) {
   flex-shrink: 0;
   padding: 7px 12px;
   border-radius: 10px;
-
   background: rgba(37, 99, 235, 0.08);
   color: var(--hl-primary);
-
   font-size: 13px;
   font-weight: 650;
   letter-spacing: 0.01em;
-
   border: 1px solid rgba(37, 99, 235, 0.18);
   pointer-events: none;
 }
@@ -120,5 +138,11 @@ function onChange(e) {
   margin: 8px 0 0;
   font-size: 12px;
   color: rgba(71, 85, 105, 0.85);
+}
+.file-field[data-drag="1"] {
+  border-color: rgba(37, 99, 235, 0.55);
+  box-shadow:
+    0 10px 22px rgba(2, 6, 23, 0.08),
+    0 0 0 4px var(--hl-focus);
 }
 </style>
