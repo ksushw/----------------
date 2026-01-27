@@ -27,7 +27,6 @@ const {
   canProcess,
   entries,
   clear,
-  uiError,
   setZipFile,
   processArchive,
 } = useHtmlLocalizer();

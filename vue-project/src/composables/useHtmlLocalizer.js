@@ -25,8 +25,6 @@ export function useHtmlLocalizer() {
   const baseTranslations = ref(null);
   const loading = ref(false);
 
-  // UI-ошибка (ранее у тебя было error.value, но это ломало код)
-  const uiError = ref("");
 
   const canProcess = computed(() => !!zipFile.value);
 
@@ -36,11 +34,10 @@ export function useHtmlLocalizer() {
   }
 
   async function processArchive() {
-    uiError.value = "";
     baseTranslations.value = null;
 
     if (!zipFile.value) {
-      uiError.value = "Нужно выбрать ZIP с HTML и переводами.";
+      console.log("Нужно выбрать ZIP с HTML и переводами.");
       return;
     }
 
@@ -86,7 +83,7 @@ export function useHtmlLocalizer() {
 
       if (!baseTranslations.value) {
         const msg = 'Не найден обязательный файл переводов "assets/locales/base.json" внутри ZIP.';
-        uiError.value = msg;
+        console.log(msg);
 
         logError(msg, {
           scope: "JSON",
@@ -98,7 +95,6 @@ export function useHtmlLocalizer() {
         return;
       }
 
-      // 2. Собираем новый ZIP, БЕЗ assets/locales и local(e).js
       const newZip = new JSZip();
       const filePromises = [];
 
@@ -110,7 +106,6 @@ export function useHtmlLocalizer() {
         const lower = relativePath.toLowerCase();
         const fileNameOnly = relativePath.split("/").pop().toLowerCase();
 
-        // --- срезаем целиком assets/locales (и папку, и файлы) ---
         if (
           lower === "assets/locales" ||
           lower === "assets/locales/" ||
@@ -119,18 +114,15 @@ export function useHtmlLocalizer() {
           return;
         }
 
-        // --- выкидываем скрипт локализации local.js / locale.js ---
         if (fileNameOnly === "local.js" || fileNameOnly === "locale.js") {
           return;
         }
 
-        // папки (кроме locales, мы их уже отфильтровали выше)
         if (file.dir) {
           newZip.folder(relativePath);
           return;
         }
 
-        // HTML
         if (lower.endsWith(".html")) {
           const htmlBase = getBaseName(relativePath);
           htmlBaseNamesInZip.add(htmlBase);
@@ -177,7 +169,6 @@ export function useHtmlLocalizer() {
           return;
         }
 
-        // JS — умная замена __t("key") по base.json
         if (lower.endsWith(".js")) {
           const p = file.async("string").then((content) => {
             const processed = processJsContent(content, baseTranslations.value, relativePath, {
@@ -190,14 +181,11 @@ export function useHtmlLocalizer() {
           return;
         }
 
-        // Остальные файлы — как есть
         const p = file.async("arraybuffer").then((content) => {
           newZip.file(relativePath, content);
         });
         filePromises.push(p);
       });
-
-      // JSON без соответствующего HTML (кроме base.json)
       jsonMap.forEach((_, baseName) => {
         if (!htmlBaseNamesInZip.has(baseName)) {
           jsonWithoutHtml++;
@@ -218,7 +206,7 @@ export function useHtmlLocalizer() {
       const baseName = zipName.value.replace(/\.zip$/i, "");
       saveAs(blob, `${baseName}-localized.zip`);
 
-      const totalJsonFiles = jsonMap.size + 1; // +1 за base.json
+      const totalJsonFiles = jsonMap.size + 1;
 
       success("Готово. Обработка завершена, новый ZIP-файл скачан.", {
         scope: "System",
@@ -237,7 +225,7 @@ export function useHtmlLocalizer() {
       });
     } catch (e) {
       console.error(e);
-      uiError.value = e?.message || "Произошла ошибка при обработке архива.";
+      console.log(e?.message || "Произошла ошибка при обработке архива.");
       logError("Критическая ошибка при обработке архива", {
         scope: "System",
         code: "PROCESSING_CRASH",
@@ -254,7 +242,6 @@ export function useHtmlLocalizer() {
     canProcess,
     entries,
     clear,
-    uiError,
     setZipFile,
     processArchive,
   };

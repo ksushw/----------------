@@ -32,7 +32,7 @@ function getTranslationValue(translations, key) {
   if (!key) return null;
 
   // если объект с обёрткой translation — разворачиваем
-  const root = translations?.translation ?? translations;
+  const root = translations;
   if (!root) return null;
 
   const value = propByPath(root, key);
