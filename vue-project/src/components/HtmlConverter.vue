@@ -2,7 +2,7 @@
   <div class="app-layout">
     <CatWrapper>
       <div class="app">
-        <h1>HTML Localizer</h1>
+
 
         <ZipUploadStep :zip-name="zipName" @select="setZipFile" />
 
@@ -63,14 +63,8 @@ const {
 
   width: auto;
   margin: 0;
-  padding: 28px 32px 28px;
-
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: var(--hl-text);
-  background: var(--hl-surface);
-  border: 1px solid var(--hl-border);
-  border-radius: calc(var(--hl-radius) + 6px);
-  box-shadow: var(--hl-shadow);
 }
 
 h1 {
