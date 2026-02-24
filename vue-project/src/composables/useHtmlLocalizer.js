@@ -2,7 +2,7 @@ import { ref, computed } from "vue";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import { useLogs } from "@/composables/useLogs";
-import { readZipFile, getTranslationValue, getBaseName, getElementPath } from "@/utils/utils";
+import { readZipFile, getTranslationValue, getBaseName, getElementPath } from "@/utils/utils.js";
 import { buildTranslations } from "@/utils/htmlLocalizer/merge";
 import { processHtmlContent } from "@/utils/htmlLocalizer/html";
 import { processJsContent } from "@/utils/htmlLocalizer/js";

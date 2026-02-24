@@ -121,7 +121,7 @@ function checkForRawText(doc, htmlPath, { warn, info, getElementPath }) {
     // Фильтр "похож на реальный текст":
     // ищем буквы/цифры (латиница, кириллица, цифры).
     // Это отсекает, например, “—”, “•”, “…” и т.п.
-    if (!/[A-Za-zА-Яа-я0-9]/.test(trimmed)) continue;
+   if (/^[\d\s+\-=:.,/\\|_()[\]{}<>!?'"`~@#$%^&*]+$/.test(trimmed)) continue;
 
     rawFragments.push({
       text: trimmed,

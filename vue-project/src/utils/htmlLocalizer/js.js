@@ -8,7 +8,6 @@
  *   __t("some.key")
  *   __t('some.key')
  *   __t(`some.key`)
- *   __t("some.key", что-то_ещё)    // второй аргумент допускается
  *
  * И заменяет весь вызов __t(...) на строковый литерал с переводом:
  *   "__Переведённый текст__"
@@ -41,6 +40,8 @@
  * - Мы не “исполняем” JS и не парсим AST, а просто делаем текстовую замену по regex.
  * - Поэтому формат __t(...) должен соответствовать регулярке, иначе замены не будет.
  */
+
+import { lintUserJs } from "@/utils/htmlLocalizer/lint.js";
 export function processJsContent(content, baseTranslations, fileName, deps) {
   const { warn, getTranslationValue } = deps;
   /**
@@ -50,6 +51,7 @@ export function processJsContent(content, baseTranslations, fileName, deps) {
    *     1) пишем предупреждение,
    *     2) возвращаем JS как есть.
    */
+  lintUserJs(content, fileName, warn);
   if (!baseTranslations) {
     warn("base.json не найден — JS сохранён без изменений", {
       scope: "JS",
@@ -88,7 +90,6 @@ export function processJsContent(content, baseTranslations, fileName, deps) {
    * - в ключе не должно быть кавычек/бектиков
    * - второй аргумент не анализируется, просто “проглатывается”
    * - если внутри второго аргумента будут скобки/")" — эта регулярка может не совпасть как ожидается
-   *   (это плата за простую замену без AST-парсера)
    */
   const regex = /__t\(\s*(['"`])([^'"`]+)\1\s*(?:,[^)]+)?\)/g;
 
@@ -97,9 +98,6 @@ export function processJsContent(content, baseTranslations, fileName, deps) {
    * -----------------------------------------------------------------------------
    * Для каждого совпадения:
    *  - match: полная строка совпадения, например: __t("header.title")
-   *  - _quote: тип кавычки (группа 1), нам он не нужен (поэтому подчёркивание)
-   *  - keyPath: ключ перевода (группа 2), например: "header.title"
-   *
    * Возвращаем строку, на которую заменяем совпадение.
    */
   return content.replace(regex, (match, _quote, keyPath) => {
@@ -113,8 +111,6 @@ export function processJsContent(content, baseTranslations, fileName, deps) {
      * Если перевод не найден:
      * - логируем предупреждение
      * - оставляем исходный вызов __t(...) нетронутым
-     * Это важно: код продолжит работать как раньше, если у вас есть runtime-реализация __t,
-     * или хотя бы вы увидите, где забыли добавить ключ.
      */
     if (value == null) {
       warn("Не найден перевод в base.json — оставляю __t(...) как есть", {
@@ -137,12 +133,7 @@ export function processJsContent(content, baseTranslations, fileName, deps) {
      *
      * Почему именно так:
      * - мы всегда возвращаем строку вида `"...."` (двойные кавычки),
-     *   значит внутри текста нельзя оставить неэкранированные " и \.
-     *
-     * Чего здесь НЕТ (и это важно понимать):
-     * - не экранируются \r, \t и прочие спецсимволы
-     * - не экранируются символы U+2028/U+2029 (редко, но бывают проблемы в JS)
-     * Если это понадобится — расширять именно этот блок.
+     *   значит внутри текста нельзя оставить неэкранированные "
      */
     const escaped = String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
 

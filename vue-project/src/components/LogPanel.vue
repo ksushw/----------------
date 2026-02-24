@@ -197,14 +197,14 @@ const grouped = computed(() => {
 
 function metaLine(e) {
   if (!e.meta) return "";
-  const pick = ["key", "selector", "path"];
+  const pick = ["key", "selector", "path", "text"];
   const parts = [];
 
   for (const k of pick) {
     const v = e.meta[k];
     if (v) parts.push(`${k}: ${String(v)}`);
   }
-  return parts.join(" · ");
+  return parts.join(" ———— ");
 }
 
 function iso(ts) {

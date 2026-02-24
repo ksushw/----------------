@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "eslint-linter-browserify": "^10.0.1"
+  }
+}
