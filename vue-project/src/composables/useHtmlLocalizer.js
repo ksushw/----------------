@@ -92,6 +92,41 @@ export function useHtmlLocalizer() {
    * I) Итоговые логи (success + summary)
    * J) Снятие loading в finally
    */
+
+  function normalizeJsonKey(v) {
+    if (!v) return "";
+    let s = String(v).trim();
+    if (!s) return "";
+    s = s.split("#")[0].split("?")[0]; // убрать hash/query
+    s = s.split("/").pop(); // взять последнее имя
+    s = s.replace(/\.json$/i, ""); // убрать .json
+    return s.trim();
+  }
+
+  function extractJsonPathFromHtml(htmlString) {
+    try {
+      const doc = new DOMParser().parseFromString(htmlString, "text/html");
+      const scripts = doc.querySelectorAll("script[src]");
+
+      for (const s of scripts) {
+        const src = s.getAttribute("src") || "";
+        // ловим ./assets/locale.js или ./assets/local.js (с любым путём и query)
+        if (/(^|\/)(locale|local)\.js(\?.*)?$/i.test(src)) {
+          // атрибут в HTML case-insensitive, но на всякий случай читаем оба варианта
+          const raw =
+            s.getAttribute("jsonPath") ||
+            s.getAttribute("jsonpath") ||
+            s.getAttribute("data-json-path");
+
+          const key = normalizeJsonKey(raw);
+          if (key) return key;
+        }
+      }
+    } catch {
+      // если парсер вдруг упал — просто без override
+    }
+    return null;
+  }
   async function processArchive() {
     // При новом запуске гарантируем, что baseTranslations будут перечитаны из текущего ZIP
     baseTranslations.value = null;
@@ -212,6 +247,7 @@ export function useHtmlLocalizer() {
        * Нужно, чтобы потом понять, есть ли “лишние” JSON переводы без HTML.
        */
       const htmlBaseNamesInZip = new Set();
+      const jsonKeysUsedByHtml = new Set();
 
       // Счётчики для итоговой статистики
       let htmlWithoutJson = 0; // сколько HTML обработать не смогли из-за отсутствия/проблем переводов
@@ -265,67 +301,61 @@ export function useHtmlLocalizer() {
         if (lower.endsWith(".html")) {
           const htmlBase = getBaseName(relativePath);
           htmlBaseNamesInZip.add(htmlBase);
-          const pageTranslations = jsonMap.get(htmlBase);
 
-          /**
-           * buildTranslations(base, page) — сборка итогового объекта переводов.
-           * Если pageTranslations отсутствует или сборка не удалась, функция может вернуть null/undefined.
-           */
-          const mergedTranslations = buildTranslations(baseTranslations.value, pageTranslations);
+          const p = file.async("string").then((content) => {
+            const overrideKey = extractJsonPathFromHtml(content); // NEW
+            const pageKey = overrideKey || htmlBase; // NEW
 
-          // Ветка: переводы собрать не удалось — HTML кладём без изменений
-          if (!mergedTranslations) {
-            htmlWithoutJson++;
+            jsonKeysUsedByHtml.add(pageKey); // NEW
 
-            // Отличаем ситуацию “нет page.json” от ситуации “page.json есть, но merge сломался”
-            if (!pageTranslations) {
-              warn("Не найден обязательный файл переводов страницы — HTML сохранён без изменений", {
-                scope: "HTML",
-                file: relativePath,
-                code: "PAGE_JSON_MISSING",
-                meta: { expected: `assets/locales/${htmlBase}.json` },
-              });
-            } else {
-              warn("Не удалось собрать переводы (base + page) — HTML сохранён без изменений", {
-                scope: "HTML",
-                file: relativePath,
-                code: "TRANSLATIONS_MERGE_FAILED",
-                meta: { pageJson: `assets/locales/${htmlBase}.json` },
-              });
+            const pageTranslations = jsonMap.get(pageKey);
+            const mergedTranslations = buildTranslations(baseTranslations.value, pageTranslations);
+
+            if (!mergedTranslations) {
+              htmlWithoutJson++;
+
+              if (!pageTranslations) {
+                warn(
+                  "Не найден обязательный файл переводов страницы — HTML сохранён без изменений",
+                  {
+                    scope: "HTML",
+                    file: relativePath,
+                    code: "PAGE_JSON_MISSING",
+                    meta: {
+                      expected: `assets/locales/${pageKey}.json`,
+                      htmlBase,
+                      overrideKey: overrideKey || null,
+                    },
+                  },
+                );
+              } else {
+                warn("Не удалось собрать переводы (base + page) — HTML сохранён без изменений", {
+                  scope: "HTML",
+                  file: relativePath,
+                  code: "TRANSLATIONS_MERGE_FAILED",
+                  meta: {
+                    pageJson: `assets/locales/${pageKey}.json`,
+                    htmlBase,
+                    overrideKey: overrideKey || null,
+                  },
+                });
+              }
+
+              newZip.file(relativePath, content);
+              return;
             }
 
-            // Копируем исходный HTML как строку
-            const p = file.async("string").then((content) => {
-              newZip.file(relativePath, content);
+            const processed = processHtmlContent(content, mergedTranslations, relativePath, {
+              warn,
+              info,
+              getTranslationValue,
+              getElementPath,
             });
-            filePromises.push(p);
-          } else {
-            // Ветка: переводы есть — обрабатываем HTML
-            const p = file.async("string").then((content) => {
-              /**
-               * processHtmlContent(html, translations, path, helpers)
-               * - получает исходный HTML
-               * - получает итоговые переводы (mergedTranslations)
-               * - знает путь файла (для логов и диагностики)
-               * - получает хелперы:
-               *   warn/info — для логов
-               *   getTranslationValue — достать перевод по ключу/пути
-               *   getElementPath — получить “путь” DOM-элемента (для понятных предупреждений)
-               *
-               * Что именно меняется в HTML — зависит от реализации processHtmlContent,
-               * но по названию это ядро “локализации” HTML.
-               */
-              const processed = processHtmlContent(content, mergedTranslations, relativePath, {
-                warn,
-                info,
-                getTranslationValue,
-                getElementPath,
-              });
-              newZip.file(relativePath, processed);
-            });
-            filePromises.push(p);
-          }
 
+            newZip.file(relativePath, processed);
+          });
+
+          filePromises.push(p);
           return;
         }
 
@@ -362,22 +392,21 @@ export function useHtmlLocalizer() {
        * Если в assets/locales/ есть перевод для страницы, но самой страницы (.html) в архиве нет —
        * это не критично, но подозрительно (лишний файл/ошибка именования/не тот архив).
        */
-      jsonMap.forEach((_, baseName) => {
-        if (!htmlBaseNamesInZip.has(baseName)) {
-          jsonWithoutHtml++;
-          warn("Для JSON перевода не найден соответствующий HTML в архиве", {
-            scope: "JSON",
-            code: "JSON_WITHOUT_HTML",
-            meta: {
-              json: `assets/locales/${baseName}.json`,
-              expectedHtml: `${baseName}.html`,
-            },
-          });
-        }
-      });
 
       // Дожидаемся, пока ВСЕ файлы будут скопированы/обработаны и записаны в newZip
       await Promise.all(filePromises);
+jsonMap.forEach((_, baseName) => {
+  if (!jsonKeysUsedByHtml.has(baseName)) {
+    jsonWithoutHtml++;
+    warn("Для JSON перевода не найден соответствующий HTML в архиве", {
+      scope: "JSON",
+      code: "JSON_WITHOUT_HTML",
+      meta: {
+        json: `assets/locales/${baseName}.json`,
+      },
+    });
+  }
+});
 
       /**
        * newZip.generateAsync({ type: "blob" }) — генерирует итоговый ZIP как Blob (для браузера).

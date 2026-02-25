@@ -1,3 +1,5 @@
+import { hasTranslatableLetters } from "@/utils/utils.js";
+
 const DEFAULTS = {
   tFunction: "__t",
   sinks: new Set(["innerHTML", "textContent", "value", "placeholder"]),
@@ -67,7 +69,11 @@ function resolveIdentifierDefNode(context, idNode) {
 function isAllowedStaticChunk(text) {
   if (text == null) return true;
   if (text.trim() === "") return true;
-  return /^[\s\W_]+$/.test(text);
+  return !hasTranslatableLetters(text);
+}
+
+function isBlankString(v) {
+  return typeof v === "string" && v.trim() === "";
 }
 
 function extractHardcodedText(node, context) {
@@ -161,7 +167,14 @@ function analyzeExpr(node, context, opts, seen = new Set()) {
 
   switch (node.type) {
     case "Literal": {
-      if (typeof node.value === "string") return { status: "hardcoded", nodes: [node] };
+      if (typeof node.value === "string") {
+        if (isBlankString(node.value)) return { status: "safe", nodes: [] };
+
+        if (opts.allowStaticChunks && isAllowedStaticChunk(node.value)) {
+          return { status: "safe", nodes: [] };
+        }
+        return { status: "hardcoded", nodes: [node] };
+      }
       return { status: "unknown", nodes: [] };
     }
 
@@ -170,7 +183,7 @@ function analyzeExpr(node, context, opts, seen = new Set()) {
       for (const q of node.quasis || []) {
         const raw = q?.value?.raw ?? "";
         if (!opts.allowStaticChunks) {
-          if (raw !== "") return { status: "hardcoded", nodes: [node] };
+          if (raw.trim() !== "") return { status: "hardcoded", nodes: [node] };
         } else {
           if (!isAllowedStaticChunk(raw)) return { status: "hardcoded", nodes: [node] };
         }
@@ -285,6 +298,12 @@ export default {
         const prop = getMemberPropName(node.left);
         if (!prop || !opts.sinks.has(prop)) return;
 
+        // innerHTML: разрешаем статический HTML-скелет без видимого текста
+        if (prop === "innerHTML") {
+          const staticStr = tryGetStaticString(node.right);
+          if (staticStr != null && isAllowedStaticInnerHTML(staticStr)) return;
+        }
+
         const res = analyzeExpr(node.right, context, opts);
 
         if (res.status === "hardcoded") {
@@ -321,3 +340,43 @@ export default {
     };
   },
 };
+
+function tryGetStaticString(node) {
+  if (!node) return null;
+
+  if (node.type === "Literal" && typeof node.value === "string") return node.value;
+
+  if (node.type === "TemplateLiteral") {
+    // только полностью статичный шаблон (без ${...})
+    if (node.expressions?.length) return null;
+    return (node.quasis || []).map((q) => q?.value?.cooked ?? q?.value?.raw ?? "").join("");
+  }
+
+  if (node.type === "BinaryExpression" && node.operator === "+") {
+    const l = tryGetStaticString(node.left);
+    if (l == null) return null;
+    const r = tryGetStaticString(node.right);
+    if (r == null) return null;
+    return l + r;
+  }
+
+  return null;
+}
+
+function getVisibleTextFromHtml(html) {
+  if (html == null) return "";
+  const s = String(html);
+
+  // если хочешь — можно запретить такие штуки вообще
+  if (/<\s*script\b/i.test(s) || /<\s*style\b/i.test(s)) return null;
+
+  return s.replace(/<!--[\s\S]*?-->/g, "").replace(/<[^>]*>/g, "");
+}
+
+function isAllowedStaticInnerHTML(html) {
+  const visible = getVisibleTextFromHtml(html);
+  if (visible == null) return false;
+
+  // пусто/пробелы/символы типа "×" — ок
+  return isAllowedStaticChunk(visible);
+}

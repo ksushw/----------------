@@ -87,6 +87,7 @@ function applyAltForImages(doc) {
  * Почему лимит:
  *   - чтобы не заспамить лог UI, особенно если HTML большой.
  */
+import { hasTranslatableLetters } from "@/utils/utils.js";
 function checkForRawText(doc, htmlPath, { warn, info, getElementPath }) {
   const root = doc.body || doc;
   if (!root) return;
@@ -121,8 +122,7 @@ function checkForRawText(doc, htmlPath, { warn, info, getElementPath }) {
     // Фильтр "похож на реальный текст":
     // ищем буквы/цифры (латиница, кириллица, цифры).
     // Это отсекает, например, “—”, “•”, “…” и т.п.
-   if (/^[\d\s+\-=:.,/\\|_()[\]{}<>!?'"`~@#$%^&*]+$/.test(trimmed)) continue;
-
+   if (!hasTranslatableLetters(trimmed)) continue;
     rawFragments.push({
       text: trimmed,
       selector: getElementPath(parent),

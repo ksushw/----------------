@@ -204,6 +204,31 @@ function getElementPath(el) {
   return parts.join(" > ") || "unknown";
 }
 
+
+function hasTranslatableLetters(input) {
+  if (input == null) return false;
+
+  let s = String(input);
+  if (s.trim() === "") return false;
+
+  // если похоже на HTML — проверяем только видимый текст (классы/теги игнор)
+  if (/<[^>]*>/.test(s)) {
+    // вырезаем комменты, теги, и entity типа &nbsp;
+    s = s
+      .replace(/<!--[\s\S]*?-->/g, "")
+      .replace(/<[^>]*>/g, "")
+      .replace(/&(?:#\d+|#x[0-9a-fA-F]+|[A-Za-z][A-Za-z0-9]+);/g, "");
+    if (s.trim() === "") return false;
+  }
+
+  // Unicode-буквы (кириллица, латиница, иероглифы и т.д.)
+  try {
+    return /\p{L}/u.test(s);
+  } catch {
+    // очень старый runtime: минимальный фолбэк
+    return /[A-Za-zА-Яа-яЁё]/.test(s);
+  }
+}
 // ----------------------------------------------------------------------------
 // Экспорт
 // ----------------------------------------------------------------------------
@@ -214,4 +239,5 @@ export {
   getTranslationValue,
   getBaseName,
   getElementPath,
+  hasTranslatableLetters,
 };
