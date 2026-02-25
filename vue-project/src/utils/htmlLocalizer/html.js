@@ -188,9 +188,19 @@ function removeLocaleScriptTags(doc) {
   const scripts = doc.querySelectorAll("script[src]");
 
   scripts.forEach((script) => {
-    const src = script.getAttribute("src") || "";
-    if (/(^|\/)(locale)\.js(\?.*)?$/i.test(src)) {
+    // src может быть с ?query и (реже) с #hash — hash тоже убираем, чтобы матчить конец файла
+    const src = (script.getAttribute("src") || "").split("#")[0];
+
+    // 1) удаляем locale/local
+    if (/(^|\/)(locale|local)\.js(\?.*)?$/i.test(src)) {
       script.remove();
+      return;
+    }
+
+    // 2) удаляем short-domain (вот твой кейс)
+    if (/(^|\/)short-domain\.js(\?.*)?$/i.test(src)) {
+      script.remove();
+      return;
     }
   });
 }
