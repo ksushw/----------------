@@ -197,7 +197,7 @@ const grouped = computed(() => {
 
 function metaLine(e) {
   if (!e.meta) return "";
-  const pick = ["key", "selector", "path", "text"];
+  const pick = ["key", "selector", "path", "text", "json"];
   const parts = [];
 
   for (const k of pick) {

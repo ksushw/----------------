@@ -398,7 +398,7 @@ export function useHtmlLocalizer() {
 jsonMap.forEach((_, baseName) => {
   if (!jsonKeysUsedByHtml.has(baseName)) {
     jsonWithoutHtml++;
-    warn("Для JSON перевода не найден соответствующий HTML в архиве", {
+    warn(`Для JSON перевода не найден соответствующий HTML в архиве`, {
       scope: "JSON",
       code: "JSON_WITHOUT_HTML",
       meta: {
