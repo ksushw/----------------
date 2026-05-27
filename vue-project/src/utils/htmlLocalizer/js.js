@@ -42,6 +42,7 @@
  */
 
 import { lintUserJs } from "@/utils/htmlLocalizer/lint.js";
+import { hasTranslatableLetters } from "@/utils/utils.js";
 export function processJsContent(content, baseTranslations, fileName, deps) {
   const { warn, getTranslationValue } = deps;
   /**
@@ -100,7 +101,7 @@ export function processJsContent(content, baseTranslations, fileName, deps) {
    *  - match: полная строка совпадения, например: __t("header.title")
    * Возвращаем строку, на которую заменяем совпадение.
    */
-  return content.replace(regex, (match, _quote, keyPath) => {
+  content = content.replace(regex, (match, _quote, keyPath) => {
     /**
      * Ищем перевод по ключу в baseTranslations.
      * getTranslationValue может поддерживать вложенные пути типа "a.b.c".
@@ -145,4 +146,96 @@ export function processJsContent(content, baseTranslations, fileName, deps) {
      */
     return `"${escaped}"`;
   });
+
+  content = processJsTemplateLiterals(content, baseTranslations, fileName, deps);
+
+  return content;
+}
+
+function checkRawTextInJsTemplate(wrapper, fileName, warn) {
+  const walker = document.createTreeWalker(wrapper, NodeFilter.SHOW_TEXT, null);
+  let node;
+  while ((node = walker.nextNode())) {
+    const trimmed = (node.nodeValue || '').trim();
+    if (!trimmed) continue;
+    const parent = node.parentElement;
+    if (!parent) continue;
+    const tag = parent.tagName.toLowerCase();
+    if (tag === 'script' || tag === 'style') continue;
+    if (parent.closest('[text]')) continue;
+    if (!hasTranslatableLetters(trimmed)) continue;
+    warn('Есть сырой текст в JS-шаблоне, нужно перенести в JSON', {
+      scope: 'JS',
+      file: fileName,
+      code: 'RAW_TEXT',
+      meta: { text: trimmed },
+    });
+  }
+}
+
+function processJsTemplateLiterals(content, baseTranslations, fileName, deps) {
+  const { warn, getTranslationValue } = deps;
+
+  const interpolations = [];
+  let safe = '';
+  let i = 0;
+  while (i < content.length) {
+    if (content[i] === '$' && content[i + 1] === '{') {
+      let depth = 1, j = i + 2;
+      while (j < content.length && depth > 0) {
+        if (content[j] === '{') depth++;
+        else if (content[j] === '}') depth--;
+        j++;
+      }
+      interpolations.push(content.slice(i, j));
+      safe += `￾I${interpolations.length - 1}￾`;
+      i = j;
+    } else {
+      safe += content[i++];
+    }
+  }
+
+  const processed = safe.replace(/`([\s\S]*?)`/g, (match, body) => {
+    if (!body.includes('text="')) return match;
+
+    // Проверяем сырой текст до сокрытия SVG — иначе плейсхолдеры ￾S0￾ сами попадут в лог
+    const checkWrapper = document.createElement('div');
+    checkWrapper.innerHTML = body;
+    checkRawTextInJsTemplate(checkWrapper, fileName, warn);
+
+    const svgBlocks = [];
+    const bodySafe = body.replace(/<svg[\s\S]*?<\/svg>/gi, (m) => {
+      svgBlocks.push(m);
+      return `￾S${svgBlocks.length - 1}￾`;
+    });
+
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = bodySafe;
+
+    const elements = wrapper.querySelectorAll('[text]');
+    if (!elements.length) return match;
+
+    elements.forEach((el) => {
+      const key = el.getAttribute('text');
+      const value = getTranslationValue(baseTranslations, key);
+
+      if (value != null) {
+        el.tagName.toLowerCase() === 'input'
+          ? el.setAttribute('placeholder', value)
+          : (el.innerHTML = value);
+        el.removeAttribute('text');
+      } else {
+        warn('Нет перевода для ключа в JS-шаблоне', {
+          scope: 'JS', file: fileName,
+          code: 'MISSING_TRANSLATION', meta: { key },
+        });
+      }
+    });
+
+    const result = wrapper.innerHTML.replace(/￾S(\d+)￾/g, (_, i) => svgBlocks[+i]);
+
+    return '`' + result + '`';
+  });
+
+  return processed.replace(/￾I(\d+)￾/g, (_, i) => interpolations[+i]);
 }
