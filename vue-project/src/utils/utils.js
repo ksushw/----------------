@@ -229,6 +229,22 @@ function hasTranslatableLetters(input) {
     return /[A-Za-zА-Яа-яЁё]/.test(s);
   }
 }
+
+/**
+ * Removes system shortcodes from text without depending on their names.
+ * A shortcode is any non-empty value wrapped in double square brackets,
+ * for example: [[domain]], [[current.year]], [[futureVariable]].
+ *
+ * Malformed and empty constructions are left untouched so they can still be
+ * detected as regular text by the caller.
+ */
+function stripShortcodes(input) {
+  if (input == null) return "";
+
+  return String(input).replace(/\[\[([^\[\]\r\n]+)\]\]/g, (shortcode, name) => {
+    return name.trim() ? "" : shortcode;
+  });
+}
 // ----------------------------------------------------------------------------
 // Экспорт
 // ----------------------------------------------------------------------------
@@ -240,4 +256,5 @@ export {
   getBaseName,
   getElementPath,
   hasTranslatableLetters,
+  stripShortcodes,
 };

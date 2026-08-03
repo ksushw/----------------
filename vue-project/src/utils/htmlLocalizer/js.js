@@ -42,7 +42,7 @@
  */
 
 import { lintUserJs } from "@/utils/htmlLocalizer/lint.js";
-import { hasTranslatableLetters } from "@/utils/utils.js";
+import { hasTranslatableLetters, stripShortcodes } from "@/utils/utils.js";
 export function processJsContent(content, baseTranslations, fileName, deps) {
   const { warn, getTranslationValue } = deps;
   /**
@@ -163,7 +163,7 @@ function checkRawTextInJsTemplate(wrapper, fileName, warn) {
     const tag = parent.tagName.toLowerCase();
     if (tag === 'script' || tag === 'style') continue;
     if (parent.closest('[text]')) continue;
-    if (!hasTranslatableLetters(trimmed)) continue;
+    if (!hasTranslatableLetters(stripShortcodes(trimmed))) continue;
     warn('Есть сырой текст в JS-шаблоне, нужно перенести в JSON', {
       scope: 'JS',
       file: fileName,
